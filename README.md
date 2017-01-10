@@ -14,13 +14,13 @@ In this project, we examine how well CNNs can transliterate Romaji, the romaniza
 <img src="images/swiftkey_ja.gif" width="200" align="right">
  
 * The modern Japanese writing system employs three scripts: Hiragana, Katakana, and Chinese characters (kanji in Japanese).
-* Hiragana and Katakana are phonetic, and Chinese characters are not.
-* In the digital environment, people mostly type Romaji to write Japanese. Basically, they rely on the suggestion the transliteration engine returns. Therefore, how accurately an engine can predict the word(s) the user has in mind is crucial in a Japanese keyboard. 
-* Look at the animation on the right. You are to type "nihongo", and the machine shows 日本語 on the suggestion bar. Then,  you tab and fix it.
+* Hiragana and Katakana are phonetic, while Chinese characters are not.
+* In the digital environment, people mostly type Roman alphabet (a.k.a. Romaji) to write Japanese. Basically, they rely on the suggestion the transliteration engine returns. Therefore, how accurately an engine can predict the word(s) the user has in mind is crucial with respect to a Japanese keyboard. 
+* Look at the animation on the right. You are to type "nihongo", then the machine shows 日本語 on the suggestion bar.
 
 
 ## Problem Formulation
-We frame the problem as a seq2seq task. (Actually this is a fun part. Compare this with my other repository: Neural Chinese Transliterator. Can you guess why I took different approaches to those?)
+We frame the problem as a seq2seq task. (Actually this is a fun part. Compare this with my other repository: Neural Chinese Transliterator. Can you guess why I took different approaches between them?)
 
 Inputs: nihongo。<br>
 => classifier <br>
@@ -48,16 +48,15 @@ We employed ByteNet style architecture (Check [Kalchbrenner et al. 2016](https:/
 
 The evaluation metric is score. It is simply computed by subtracting levenshtein distance from the length of the true sentence. For example, the score below is 8 because the length of the ground truth is 12, and the distance between the two sentences is 4. Technically, it may not be the best choice, but I believe it suffices for this purpose.
 
-Inputs&nbsp;&nbsp;: zuttosakinokotodakedone。
+Inputs&nbsp;&nbsp;: zuttosakinokotodakedone。<br/>
 Expected: ずっと先のことだけどね。	<br/>
-Got&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;     : ずっと好きの時だけどね。
+Got&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;     : ずっと好きの時だけどね。
 
 The training is quite fast. In my computer with a gtx 1080, the training reached the optimum in a couple of hours. Evaluations results are as follows. In both layouts, our models showed accuracy lower than SwiftKey by 0.5 - 0.7 points). Details are available in `results.csv`. 
 
 | Layout | Full Score | Our Model | SwiftKey 6.4.8.57 |
 |--- |--- |--- |--- |
 |QWERTY| 10880 | 9397 (=0.86 acc.) | 10106(=0.93 acc.)|
-|NINE| 10880 | 8383 (=0.77 acc.) | 8962(=0.82 acc.)|
 
 
 ## Conclusions
@@ -67,9 +66,9 @@ The training is quite fast. In my computer with a gtx 1080, the training reached
   * We're not sure how accurate the Pinyin annotation results the library xpinyin returns are. It should be helpful if we can improve their accuracy.
   * As always, more data is better.
 
-## Notes for reproducibility
-* For Qwerty, download the pre-trained model file [here](https://drive.google.com/open?id=0B0ZXk88koS2Kdko5SHhtZ2h2RVU) and  extract it to `qwerty/asset/train/ckpt` folder.
-* For Nine, download the pre-trained model file [here](https://drive.google.com/open?id=0B0ZXk88koS2KRW94N1VveDdSekU) and extract it to `nine/asset/train/ckpt` folder.
+## Note for reproducibility
+* Download the pre-trained model file [here](https://drive.google.com/open?id=0B0ZXk88koS2KZGVTeUF3NVJUVWc) and  extract it to `asset/train/ckpt` folder.
+
 
 	
 
