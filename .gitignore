@@ -1,6 +1,7 @@
 *.pyc
 asset/
 data/
+data/*
 !data/vocab.pkl
 !data/input.csv
 _*
