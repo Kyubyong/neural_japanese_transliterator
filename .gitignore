@@ -1,7 +1,5 @@
 *.pyc
 asset/
-qwerty/
-nine/
 data/
 !data/vocab.pkl
 !data/input.csv
