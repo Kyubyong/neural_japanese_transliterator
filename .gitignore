@@ -1,9 +1,10 @@
 *.pyc
 asset/
 data/
-data/*
-!data/vocab.pkl
-!data/input.csv
+data/*.tsv
+data/*.txt
+data/*.npz
+data/.*
 _*
 *~
 *.odp
