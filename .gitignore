@@ -1,6 +1,5 @@
 *.pyc
 asset/
-data/
 data/*.tsv
 data/*.txt
 data/*.npz
