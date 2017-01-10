@@ -1,88 +1,61 @@
 # coding: utf-8
 #!/usr/bin/python2
+"""
+Before running this code, make sure that you've downloaded Leipzig Japanese Corpus 
+(http://corpora2.informatik.uni-leipzig.de/downloads/jpn_news_2005-2008_1M-text.tar.gz)
+Extract and copy the `jpn_news_2005-2008_1M-sentences.txt` to `data/` folder.
+
+This code should generate a file which looks like this:
+1    enouedehashuuridets...。    絵の上では修理で使っ...。
+
+In each line, the id, romaji, and a japanese sentence are separated by a tab.
+Created in Jan. 2017, kyubyong. kbpark.linguist@gmail.com
+"""
+from __future__ import print_function 
 import codecs
-import lxml.etree as ET
 import os
-import regex
-import romkan 
-from janome.tokenizer import Tokenizer; t = Tokenizer()
+import regex # pip install regex
+import romkan # pip install romkan
+from janome.tokenizer import Tokenizer # pip install janome
 
-fname = "E:/ja/jawiki-20161201-pages-articles-multistream.xml"    
-
-def clean_text(text):
-    # Common
-    text = regex.sub("(?s)<ref>.+?</ref>", "", text) # remove reference links
-    text = regex.sub("(?s)<[^>]+>", "", text) # remove html tags
-    text = regex.sub("&[a-z]+;", "", text) # remove html entities
-    text = regex.sub("(?s){{.+?}}", "", text) # remove markup tags
-    text = regex.sub("(?s){.+?}", "", text) # remove markup tags
-    text = regex.sub("(?s)\[\[([^]]+\|)", "", text) # remove link target strings
-    text = regex.sub("(?s)\[\[([^]]+\:.+?]])", "", text) # remove media links
-    
-    text = regex.sub("[']{5}", "", text) # remove italic+bold symbols
-    text = regex.sub("[']{3}", "", text) # remove bold symbols
-    text = regex.sub("[']{2}", "", text) # remove italic symbols
-    
-    text = regex.sub(u"[^\r\n\p{Han}\p{Hiragana}\p{Katakana}\dー。！？]", "", text)
-    
-    # Common
-    text = regex.sub("[ ]{2,}", " ", text) # Squeeze spaces.
+def clean(text):
+    if regex.search("[A-Za-z0-9]", text) is not None: # For simplicity, sentence containing roman alphanumeric characters are excluded.
+        return ""
+    text = regex.sub(u"[^\p{Han}\p{Hiragana}\p{Katakana}ー。，！？]", "", text)
     return text
 
-def sentence_segment(text):
-    '''
-    Args:
-      text: A string. A unsegmented paragraph.
-    
-    Returns:
-      A list of sentences.
-    '''
-    sents = regex.sub(u"([。！？])", r"\1 ", text)
-    return sents.split()
-        
-def align(sent):
-    '''
-    Args:
-      sent: A string. A sentence.
-    
-    Returns:
-      A list of words.
-    '''
-    romaji, surface = '', ''
-    for token in t.tokenize(u'すもももももももものうち'):
-        surface += regex.split("[\t,]", str(token).decode('utf8'))[0]
+def get_romaji(sent):
+    t = Tokenizer()
+    readings = ""
+    for token in t.tokenize(sent):
+        surface = regex.split("[\t,]", str(token).decode('utf8'))[0]
         reading = regex.split("[\t,]", str(token).decode('utf8'))[-2]
-        romaji += romkan.to_roma(reading)
+        reading = surface if reading == "*" else reading
+        readings += reading
+    romaji = romkan.to_roma(readings)
 
-    return romaji, surface
+    return romaji
 
 def build_corpus():
-    with codecs.open("E:/ja/ja.txt", 'w', 'utf-8') as fout:
-        i = 1
-        j = 1
-        ns = "{http://www.mediawiki.org/xml/export-0.10/}" # namespace
-        for _, elem in ET.iterparse(fname, tag=ns+"text"):
-            running_text = elem.text
-            try:
-                running_text = clean_text(running_text)
-                sents = sentence_segment(running_text)
-                for sent in sents:
-                    
-                    if sent is not None and 10 < len(sent) < 30:
-                        romaji, surface = align(sent)
-                        fout.write(u"{}\t{}\n".format(romaji, surface))
-                                
-            except:
-                continue # it's okay as we have a pretty big corpus!
-            elem.clear() # We need to save memory!
-            if i % 1000 == 0: 
-                print i,
-                fsize = os.path.getsize("E:/zh/zh.txt")
-                if fsize > 10000000:
-                    break
-            i += 1
+    with codecs.open("data/ja.tsv", 'w', 'utf-8') as fout:
+        with codecs.open("data/jpn_news_2005-2008_1M-sentences.txt", 'r', 'utf-8') as fin:
+            i = 1
+            while 1:
+                line = fin.readline()
+                if not line: break
+                
+                try:
+                    idx, sent = line.strip().split("\t")
+                    sent = clean(sent)
+                    if 0 < len(sent) < 30:
+                        romaji = get_romaji(sent)
+                        fout.write(u"{}\t{}\t{}\n".format(idx, romaji, sent))
+                except:
+                    continue # it's okay as we have a pretty big corpus!
+                
+                if i % 1000 == 0: print(i,)
+                i += 1
 
 if __name__ == "__main__":
     build_corpus()
-    
-    print "Done"
+    print("Done")
