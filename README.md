@@ -63,7 +63,7 @@ The training is quite fast. In my computer with a gtx 1080, the training reached
 * Unfortunately, our simple model failed to show better performance than the SwiftKey engine.
 * However, there is still much room for improvement. Here are some ideas.
   * You can refine the model architecture or hyperparameters.
-  * We can adopt a different evaluation metric.
+  * You can adopt a different evaluation metric.
   * As always, more data would be better.
 
 ## Note for reproducibility
