@@ -1,6 +1,6 @@
 # Neural Japanese Transliterator—can you do better than SwiftKey™ Keyboard?
 
-In this project, we examine how well CNNs can transliterate Romaji, the romanization system for Japanese, into non-roman scripts such as Hiragana, Katakana, or Kanji, i.e., Chinese characters. The evaluation results for 1000 Japanese test sentences indicate that deep convolutional layers can quite easily and quickly learn to transliterate Romaji to the Japanese writing system though our simple model failed to outperform SwiftKey™ keyboard.
+In this project, we examine how well CNNs can transliterate Romaji, the romanization system for Japanese, into non-roman scripts such as Hiragana, Katakana, or Kanji, i.e., Chinese characters. The evaluation results for 896 Japanese test sentences indicate that deep convolutional layers can quite easily and quickly learn to transliterate Romaji to the Japanese writing system though our simple model failed to outperform SwiftKey™ keyboard.
 
 ## Requirements
   * numpy >= 1.11.1
@@ -28,7 +28,7 @@ Inputs: nihongo。<br>
  
 ## Data
 * For training, we used [Leipzig Japanese Corpus](http://corpora2.informatik.uni-leipzig.de/download.html). 
-* For evaluation, 1000 Japanese sentences were collected separately. See `data/input.csv`.
+* For evaluation, 896 Japanese sentences were collected separately. See `data/input.csv`.
 
 ## Model Architecture
 
