@@ -52,19 +52,19 @@ Inputs&nbsp;&nbsp;: zuttosakinokotodakedone。<br/>
 Expected: ずっと先のことだけどね。	<br/>
 Got&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;     : ずっと好きの時だけどね。
 
-The training is quite fast. In my computer with a gtx 1080, the training reached the optimum in a couple of hours. Evaluations results are as follows. In both layouts, our models showed accuracy lower than SwiftKey by 0.5 - 0.7 points). Details are available in `results.csv`. 
+The training is quite fast. In my computer with a gtx 1080, the training reached the optimum in a couple of hours. Evaluations results are as follows. In both layouts, our models showed accuracy lower than SwiftKey by 0.3 points). Details are available in `results.csv`. 
 
 | Layout | Full Score | Our Model | SwiftKey 6.4.8.57 |
 |--- |--- |--- |--- |
-|QWERTY| 10880 | 9397 (=0.86 acc.) | 10106(=0.93 acc.)|
+|QWERTY| 129530 | 10890 (=0.84 acc.) | 11313 (=0.87 acc.)|
 
 
 ## Conclusions
-* Unfortunately, our simple model failed to show better performance than the SwiftKey engine both in Qwerty and Nine keyboard simulations.
+* Unfortunately, our simple model failed to show better performance than the SwiftKey engine.
 * However, there is still much room for improvement. Here are some ideas.
   * You can refine the model architecture or hyperparameters.
-  * We're not sure how accurate the Pinyin annotation results the library xpinyin returns are. It should be helpful if we can improve their accuracy.
-  * As always, more data is better.
+  * We can adopt a different evaluation metric.
+  * As always, more data would be better.
 
 ## Note for reproducibility
 * Download the pre-trained model file [here](https://drive.google.com/open?id=0B0ZXk88koS2KZGVTeUF3NVJUVWc) and  extract it to `asset/train/ckpt` folder.

@@ -41,8 +41,8 @@ def main():
                 
                 i = 0
                 while i < Hyperparams.seqlen - 1:
-                    logits = sess.run(g.logits, {g.x: x, g.y_src: preds_prev}) # (64, 13)
-                    pred = np.argmax(logits, -1) # (64,)
+                    logits = sess.run(g.logits, {g.x: x, g.y_src: preds_prev})
+                    pred = np.argmax(logits, -1)
                     
                     preds_prev[:, i+1] = pred[:, i]
                     preds[:, i] = pred[:, i]
