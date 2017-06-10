@@ -28,7 +28,7 @@ Outputs: 日本語。
  
 ## Data
 * For training, we used [Leipzig Japanese Corpus](http://corpora2.informatik.uni-leipzig.de/download.html). 
-* For evaluation, 896 Japanese sentences were collected separately. See `data/input.csv`.
+* For evaluation, 896 Japanese sentences were collected separately. See `data/test.csv`.
 
 ## Model Architecture
 
