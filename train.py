@@ -1,75 +1,81 @@
-#-*- coding: utf-8 -*-
-#!/usr/bin/python2
+# -*- coding: utf-8 -*-
+#/usr/bin/python2
 '''
-Training.
+By kyubyong park. kbpark.linguist@gmail.com. 
+www.github.com/kyubyong/neural_japanese_transliterator
 '''
+
 from __future__ import print_function
-from prepro import Hyperparams, load_vocab, load_train_data
-import sugartensor as tf
+import tensorflow as tf
 
-def get_batch_data():
-    # Load data
-    X, Y = load_train_data()
-    
-    # Create Queues
-    input_queues = tf.train.slice_input_producer([tf.convert_to_tensor(X, tf.int64), 
-                                                  tf.convert_to_tensor(Y, tf.int64)])
+from tqdm import tqdm
+from data_load import get_batch, load_vocab, load_train_data
+from hyperparams import Hyperparams as hp
+from utils import shift_by_one
+from modules import embed
+from networks import encode, decode
+from data_load import *
 
-    # create batch queues
-    x, y = tf.train.shuffle_batch(input_queues,
-                                  num_threads=8,
-                                  batch_size=Hyperparams.batch_size, 
-                                  capacity=Hyperparams.batch_size*64,
-                                  min_after_dequeue=Hyperparams.batch_size*32, 
-                                  allow_smaller_final_batch=False) 
-    num_batch = len(X) // Hyperparams.batch_size
-    
-    return x, y, num_batch # (64, 50) int64, (64, 50) int64, 1636
+roma2idx, idx2roma, surf2idx, idx2surf = load_vocab()
 
-class ModelGraph():
-    '''Builds a model graph'''
-    def __init__(self, mode="train"):
-        if mode == "train":
-            self.x, self.y, self.num_batch = get_batch_data() # (64, 50) int64, (64, 50) int64, 1636
-            self.y_src = tf.concat(1, [tf.zeros((Hyperparams.batch_size, 1), tf.int64), self.y[:, :-1]])
-        else: # test
-            self.x = tf.placeholder(tf.int64, [None, Hyperparams.seqlen])
-            self.y_src = tf.placeholder(tf.int64, [None, Hyperparams.seqlen])
-
-        self.roma2idx, _, self.surf2idx, _ = load_vocab()
-        
-        self.emb_x = tf.sg_emb(name='emb_x', voca_size=len(self.roma2idx), dim=Hyperparams.embed_dim)
-        self.emb_y = tf.sg_emb(name='emb_y', voca_size=len(self.surf2idx), dim=Hyperparams.embed_dim)
-        
-        self.enc = self.x.sg_lookup(emb=self.emb_x)
-        
-        with tf.sg_context(size=5, act='relu', bn=True):
-            for _ in range(20):
-                dim = self.enc.get_shape().as_list()[-1]
-                self.enc += self.enc.sg_conv1d(dim=dim) # (64, 50, 300) float32
-
-        self.enc = self.enc.sg_concat(target=self.y_src.sg_lookup(emb=self.emb_y))
-        
-        self.dec = self.enc
-        with tf.sg_context(size=5, act='relu', bn=True):
-            for _ in range(20):
-                dim = self.dec.get_shape().as_list()[-1]
-                self._dec = tf.pad(self.dec, [[0, 0], [4, 0], [0, 0]])  # zero prepadding
-                self.dec += self._dec.sg_conv1d(dim=dim, pad='VALID')  
-                        
-        # final fully convolutional layer for softmax
-        self.logits = self.dec.sg_conv1d(size=1, dim=len(self.surf2idx), act='linear', bn=False) # (64, 50, 5072) float32
-        if mode == "train":
-            self.ce = self.logits.sg_ce(target=self.y, mask=False, one_hot=False) # (64, 50) float32
-            self.istarget = tf.not_equal(self.y, tf.zeros_like(self.y)).sg_float() # (64, 50) float32
-            self.reduced_loss = (self.ce * self.istarget).sg_sum() / (self.istarget.sg_sum() + 1e-5)
-            tf.sg_summary_loss(self.reduced_loss, "reduced_loss")
+class Graph:
+    def __init__(self, is_training=True):
+        self.graph = tf.Graph()
+        with self.graph.as_default():
+            if is_training:
+                self.x, self.y, self.num_batch = get_batch()
+            else: # Evaluation
+                self.x = tf.placeholder(tf.int32, shape=(None, hp.max_len,))
+                self.y = tf.placeholder(tf.int32, shape=(None, hp.max_len,))
             
-def train():
-    g = ModelGraph(); print("Graph loaded!")
+            # Character Embedding for x
+            self.enc = embed(self.x, len(roma2idx), hp.embed_size, scope="emb_x")
+                
+            # Encoder
+            self.memory = encode(self.enc, is_training=True)
+            
+            # Character Embedding for decoder_inputs
+            self.decoder_inputs = shift_by_one(self.y)
+            self.dec = embed(self.decoder_inputs, len(surf2idx), hp.embed_size, scope="emb_decoder_inputs")
+            
+            # Decoder
+            self.outputs = decode(self.dec, self.memory, len(surf2idx), is_training=is_training) # (N, T', hp.n_mels*hp.r)
+            self.logprobs = tf.log(tf.nn.softmax(self.outputs)+1e-10) 
+            self.preds = tf.arg_max(self.outputs, dimension=-1)
+                
+            if is_training: 
+                self.loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y, logits=self.outputs) 
+                self.istarget = tf.to_float(tf.not_equal(self.y, tf.zeros_like(self.y))) # masking
+                self.mean_loss = tf.reduce_sum(self.loss * self.istarget) / (tf.reduce_sum(self.istarget) + 1e-5)
+               
+                # Training Scheme
+                self.global_step = tf.Variable(0, name='global_step', trainable=False)
+                self.optimizer = tf.train.AdamOptimizer(learning_rate=hp.lr)
+                self.train_op = self.optimizer.minimize(self.mean_loss, global_step=self.global_step)
+                   
+                # Summmary 
+                tf.summary.scalar('mean_loss', self.mean_loss)
+                self.merged = tf.summary.merge_all()
+         
+def main():   
+    g = Graph(); print("Training Graph loaded")
     
-    tf.sg_train(lr=0.0001, lr_reset=True, log_interval=10, loss=g.reduced_loss, max_ep=20, 
-                save_dir='asset/train', early_stop=False, max_keep=10, ep_size=g.num_batch)
-     
+    with g.graph.as_default():
+        # Training 
+        sv = tf.train.Supervisor(logdir=hp.logdir,
+                                 save_model_secs=0)
+        with sv.managed_session() as sess:
+            for epoch in range(1, hp.num_epochs+1): 
+                if sv.should_stop(): break
+                for step in tqdm(range(g.num_batch), total=g.num_batch, ncols=70, leave=False, unit='b'):
+                    sess.run(g.train_op)
+                    if step%10==0:
+                        print(sess.run(g.mean_loss))
+                    
+                # Write checkpoint files at every epoch
+                gs = sess.run(g.global_step) 
+                sv.saver.save(sess, hp.logdir + '/model_epoch_%02d_gs_%d' % (epoch, gs))
+
 if __name__ == '__main__':
-    train(); print("Done")
+    main()
+    print("Done")
