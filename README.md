@@ -1,10 +1,11 @@
-# Neural Japanese Transliterator—can you do better than SwiftKey™ Keyboard?
+# Neural Japanese Transliteration—can you do better than SwiftKey™ Keyboard?
 
-In this project, we examine how well CNNs can transliterate Romaji, the romanization system for Japanese, into non-roman scripts such as Hiragana, Katakana, or Kanji, i.e., Chinese characters. The evaluation results for 896 Japanese test sentences indicate that deep convolutional layers can quite easily and quickly learn to transliterate Romaji to the Japanese writing system though our simple model failed to outperform SwiftKey™ keyboard.
+## Abstract
+In this project, I examine how well neural networks can convert Roman letters into the Japanese script, i.e., Hiragana, Katakana, or Kanji. The accuracy evaluation results for 896 Japanese test sentences outperform the SwiftKey™ keyboard, a well-known smartphone multilingual keyboard, by a small margin. It seems that neural networks can learn this task easily and quickly.
 
 ## Requirements
-  * numpy >= 1.11.1
-  * sugartensor >= 0.0.1.8 (pip install sugartensor)
+  * NumPy >= 1.11.1
+  * TensorFlow == 1.1
   * regex (Enables us to use convenient regular expression posix)
   * janome (for morph analysis)
   * romkan (for converting kana to romaji)
@@ -20,11 +21,10 @@ In this project, we examine how well CNNs can transliterate Romaji, the romaniza
 
 
 ## Problem Formulation
-We frame the problem as a seq2seq task. (Actually this is a fun part. Compare this with my other repository: Neural Chinese Transliterator. Can you guess why I took different approaches between them?)
+I frame the problem as a seq2seq task.
 
 Inputs: nihongo。<br>
-=> classifier <br>
-=> Outputs: 日本語。
+Outputs: 日本語。
  
 ## Data
 * For training, we used [Leipzig Japanese Corpus](http://corpora2.informatik.uni-leipzig.de/download.html). 
@@ -32,49 +32,45 @@ Inputs: nihongo。<br>
 
 ## Model Architecture
 
-We employed ByteNet style architecture (Check [Kalchbrenner et al. 2016](https://arxiv.org/pdf/1610.10099v1.pdf)). But we stacked simple convolutional layers without dilations.
+I adopted the encoder and the first decoder architecture of [Tacotron](https://arxiv.org/abs/1703.10135), a speech synthesis model. 
 
-## Work Flow
+## Contents
+* `hyperparams.py` contains hyperparameters. You can change the value if necessary.
+* `annotate.py` makes Romaji-Japanese parallel sentences.
+* `prepro.py` defines and makes vocabulary and training data.
+* `modules.py` has building blocks for networks.
+* `networks.py` has encoding and decoding networks.
+* `data_load.py` covers some functions regarding data loading.
+* `utils.py` has utility functions.
+* `train.py` is about training. 
+* `eval.py` is about evaluation.
 
-* STEP 1. Download [Leipzig Japanese Corpus](http://corpora2.informatik.uni-leipzig.de/downloads/jpn_news_2005-2008_1M-text.tar.gz).
-* STEP 2. Extract it and copy `jpn_news_2005-2008_1M-sentences.txt` to `data/` folder.
-* STEP 3. Run `build_corpus.py` to build a Romaji-Japanese parallel corpus.
-* STEP 4. Run `prepro.py` to make vocabulary and training data.
-* STEP 5. Run `train.py`.
-* STEP 6. Run `eval.py` to get the results for the test sentences.
-* STEP 7. Install the latest SwiftKey keyboard app and manually test it for the same sentences. (Luckily, you don't have to because I've done it:))
+## Training
 
-## Evaluation & Results
-
-The evaluation metric is score. It is simply computed by subtracting levenshtein distance from the length of the true sentence. For example, the score below is 8 because the length of the ground truth is 12, and the distance between the two sentences is 4. Technically, it may not be the best choice, but I believe it suffices for this purpose.
-
-Inputs&nbsp;&nbsp;: zuttosakinokotodakedone。<br/>
-Expected: ずっと先のことだけどね。	<br/>
-Got&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;     : ずっと好きの時だけどね。
-
-The training is quite fast. In my computer with a gtx 1080, the training reached the optimum in a couple of hours. Evaluations results are as follows. In both layouts, our models showed accuracy lower than SwiftKey by 0.3 points). Details are available in `results.csv`. 
-
-| Layout | Full Score | Our Model | SwiftKey 6.4.8.57 |
-|--- |--- |--- |--- |
-|QWERTY| 129530 | 10890 (=0.84 acc.) | 11313 (=0.87 acc.)|
+* STEP 1. Download [Leipzig Japanese Corpus](http://corpora2.informatik.uni-leipzig.de/downloads/jpn_news_2005-2008_1M-text.tar.gz) and extract `jpn_news_2005-2008_1M-sentences.txt` to `data/` folder.
+* STEP 2. Adjust hyperparameters in `hyperparams.py` if necessary.
+* STEP 3. Run `python annotate.py`.
+* STEP 4. Run `python prepro.py`. Or download the [preprocessed files](https://u42868014.dl.dropboxusercontent.com/u/42868014/japanese_transliteration/preprocessed.zip).
+* STEP 5. Run `train.py`. Or download the [pretrained files](https://u42868014.dl.dropboxusercontent.com/u/42868014/japanese_transliteration/logdir.zip).
 
 
-## Conclusions
-* Unfortunately, our simple model failed to show better performance than the SwiftKey engine.
-* However, there is still much room for improvement. Here are some ideas.
-  * You can refine the model architecture or hyperparameters.
-  * You can adopt a different evaluation metric.
-  * As always, more data would be better.
+## Testing
+* STEP 1. Run `eval.py`.
+* STEP 2. Install the latest SwiftKey keyboard app and manually test it for the same sentences. (Don't worry. You don't have to because I've done it:))
 
-## Note for reproducibility
-* Download the pre-trained model file [here](https://drive.google.com/open?id=0B0ZXk88koS2KZGVTeUF3NVJUVWc) and  extract it to `asset/train/ckpt` folder.
+## Results
 
+The training curve looks like this.
 
-	
+<img src="images/training_curve.png">
 
+The evaluation metric is CER (Character Error Rate). Its formula is 
 
+* edit distance / # characters = CER.
 
+The following is the results after five epochs. Details are available in `results/*.csv`. 
 
-
-
+| Mine (Greedy decoding) | Mine (Beam decoding) | SwiftKey 6.4.8.57 |
+|--- |--- |--- | 
+|1618/12057=0.13 | 1576/12057=0.13 | 1640/12057=0.13|
 
