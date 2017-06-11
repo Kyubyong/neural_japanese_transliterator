@@ -37,6 +37,7 @@ def get_romaji(sent):
     return romaji
 
 def annotate():
+    if not os.path.exists("preprocessed"): os.mkdir("preprocessed")
     with codecs.open("preprocessed/ja.tsv", 'w', 'utf-8') as fout:
         with codecs.open("data/jpn_news_2005-2008_1M-sentences.txt", 'r', 'utf-8') as fin:
             i = 1
