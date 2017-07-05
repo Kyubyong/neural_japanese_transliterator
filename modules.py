@@ -39,9 +39,11 @@ def embed(inputs, vocab_size, num_units, zero_pad=True, scope="embedding", reuse
  
 def normalize(inputs, 
               type="bn",
-              decay=.99,
+              decay=.999,
+              epsilon=1e-8,
               is_training=True, 
               activation_fn=None,
+              reuse=None,
               scope="normalize"):
     '''Applies {batch|layer} normalization.
     
@@ -85,12 +87,12 @@ def normalize(inputs,
                                                decay=decay,
                                                center=True, 
                                                scale=True, 
-                                               activation_fn=activation_fn, 
                                                updates_collections=None,
                                                is_training=is_training,
                                                scope=scope,
                                                zero_debias_moving_mean=True,
-                                               fused=True)
+                                               fused=True,
+                                               reuse=reuse)
             # restore original shape
             if inputs_rank==2:
                 outputs = tf.squeeze(outputs, axis=[1, 2])
@@ -101,21 +103,29 @@ def normalize(inputs,
                                                decay=decay,
                                                center=True, 
                                                scale=True, 
-                                               activation_fn=activation_fn, 
                                                updates_collections=None,
                                                is_training=is_training,
                                                scope=scope,
+                                               reuse=reuse,
                                                fused=False)    
-    elif type=="ln":
-        outputs = tf.contrib.layers.layer_norm(inputs=inputs, 
-                                            center=True, 
-                                            scale=True, 
-                                            activation_fn=activation_fn, 
-                                            scope=scope)
+    elif type in ("ln",  "ins"):
+        reduction_axis = -1 if type=="ln" else 1   
+        with tf.variable_scope(scope, reuse=reuse):
+            inputs_shape = inputs.get_shape()
+            params_shape = inputs_shape[-1:]
+        
+            mean, variance = tf.nn.moments(inputs, [reduction_axis], keep_dims=True)
+            beta = tf.Variable(tf.zeros(params_shape))
+            gamma = tf.Variable(tf.ones(params_shape))
+            normalized = (inputs - mean) / ( (variance + epsilon) ** (.5) )
+            outputs = gamma * normalized + beta
     else:
-        raise ValueError("Currently we support `bn` or `ln` only.")
+        outputs = inputs
     
+    if activation_fn:
+        outputs = activation_fn(outputs)
     return outputs
+
 
 def conv1d(inputs, 
            filters=None, 
@@ -159,7 +169,7 @@ def conv1d(inputs,
         outputs = tf.layers.conv1d(**params)
     return outputs
 
-def conv1d_banks(inputs, K=16, is_training=True, scope="conv1d_banks", reuse=None):
+def conv1d_banks(inputs, K=16, num_units=None, norm_type="bn", is_training=True, scope="conv1d_banks", reuse=None):
     '''Applies a series of conv1d separately.
     
     Args:
@@ -171,16 +181,18 @@ def conv1d_banks(inputs, K=16, is_training=True, scope="conv1d_banks", reuse=Non
     Returns:
       A 3d tensor with shape of [N, T, K*Hp.embed_size//2].
     '''
+    if num_units is None:
+        num_units = inputs.get_shape()[-1]
+
     with tf.variable_scope(scope, reuse=reuse):
-        outputs = conv1d(inputs, hp.embed_size//2, 1) # k=1
-        outputs = normalize(outputs, type="bn", is_training=is_training, 
-                            activation_fn=tf.nn.relu)
-        for k in range(2, K+1): # k = 2...K
+        outputs = conv1d(inputs, num_units, 1)  # k=1
+        for k in range(2, K + 1):  # k = 2...K
             with tf.variable_scope("num_{}".format(k)):
-                output = conv1d(inputs, hp.embed_size // 2, k, 1)
-                output = normalize(output, type="bn", is_training=is_training, 
-                            activation_fn=tf.nn.relu)
+                output = conv1d(inputs, num_units, k)
                 outputs = tf.concat((outputs, output), -1)
+        outputs = normalize(outputs, type=norm_type, is_training=is_training,
+                                    activation_fn=tf.nn.relu)
+    
     return outputs # (N, T, Hp.embed_size//2*K)
 
 def gru(inputs, num_units=None, bidirection=False, scope="gru", reuse=None):
@@ -216,8 +228,9 @@ def attention_decoder(inputs, memory, num_units=None, scope="attention_decoder",
     '''Applies a GRU to `inputs`, while attending `memory`.
     Args:
       inputs: A 3d tensor with shape of [N, T', C']. Decoder inputs.
-      num_units: An int. Attention size.
       memory: A 3d tensor with shape of [N, T, C]. Outputs of encoder network.
+      seqlens: A 1d tensor with shape of [N,], dtype of int32.
+      num_units: An int. Attention size.
       scope: Optional scope for `variable_scope`.  
       reuse: Boolean, whether to reuse the weights of a previous layer
         by the same name.
@@ -228,14 +241,18 @@ def attention_decoder(inputs, memory, num_units=None, scope="attention_decoder",
     with tf.variable_scope(scope, reuse=reuse):
         if num_units is None:
             num_units = inputs.get_shape().as_list[-1]
-            
-        attention_mechanism = tf.contrib.seq2seq.BahdanauAttention(num_units, memory)
+        
+        attention_mechanism = tf.contrib.seq2seq.BahdanauAttention(num_units, 
+                                                                   memory, 
+                                                                   normalize=True,
+                                                                   probability_fn=tf.nn.softmax)
         decoder_cell = tf.contrib.rnn.GRUCell(num_units)
-        cell_with_attetion = tf.contrib.seq2seq.DynamicAttentionWrapper(decoder_cell, attention_mechanism, num_units)
-        outputs, _ = tf.nn.dynamic_rnn(cell_with_attetion, inputs, dtype=tf.float32) #( 1, 6, 16)
+        cell_with_attention = tf.contrib.seq2seq.AttentionWrapper(decoder_cell, attention_mechanism, num_units)
+        outputs, _ = tf.nn.dynamic_rnn(cell_with_attention, inputs, 
+                                       dtype=tf.float32) #( N, T', 16)
     return outputs
 
-def prenet(inputs, is_training=True, scope="prenet", reuse=None):
+def prenet(inputs, num_units=None, dropout_rate=0., is_training=True, scope="prenet", reuse=None):
     '''Prenet for Encoder and Decoder.
     Args:
       inputs: A 3D tensor of shape [N, T, hp.embed_size].
@@ -247,11 +264,15 @@ def prenet(inputs, is_training=True, scope="prenet", reuse=None):
     Returns:
       A 3D tensor of shape [N, T, num_units/2].
     '''
+    if num_units is None:
+        num_units = [inputs.get_shape()[-1], inputs.get_shape()[-1]]
+        
     with tf.variable_scope(scope, reuse=reuse):
-        outputs = tf.layers.dense(inputs, units=hp.embed_size, activation=tf.nn.relu, name="dense1")
-#         outputs = tf.nn.dropout(outputs, keep_prob=.5 if is_training==True else 1., name="dropout1")
-        outputs = tf.layers.dense(outputs, units=hp.embed_size//2, activation=tf.nn.relu, name="dense2")
-#         outputs = tf.nn.dropout(outputs, keep_prob=.5 if is_training==True else 1., name="dropout2") 
+        outputs = tf.layers.dense(inputs, units=num_units[0], activation=tf.nn.relu, name="dense1")
+        outputs = tf.layers.dropout(outputs, rate=dropout_rate, training=is_training, name="dropout1")
+        outputs = tf.layers.dense(outputs, units=num_units[1], activation=tf.nn.relu, name="dense2")
+        outputs = tf.layers.dropout(outputs, rate=dropout_rate, training=is_training, name="dropout2")
+
     return outputs # (N, T, num_units/2)
 
 def highwaynet(inputs, num_units=None, scope="highwaynet", reuse=None):

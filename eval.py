@@ -37,7 +37,7 @@ def eval():
             # Get model
             mname = open(hp.logdir + '/checkpoint', 'r').read().split('"')[1] # model name
                
-            with codecs.open('results/{}_beam_width_{}.csv'.format(mname, hp.beam_width), 'w', 'utf-8') as fout:
+            with codecs.open('results/{}_{}_beam_width_{}.csv'.format(hp.norm_type, mname, hp.beam_width), 'w', 'utf-8') as fout:
                 fout.write("NUM,EXPECTED,{}_beam_width_{},# characters,edit distance\n".format(mname, hp.beam_width))
                 
                 total_edit_distance = 0

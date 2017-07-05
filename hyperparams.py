@@ -15,6 +15,8 @@ class Hyperparams:
     encoder_num_banks = 16
     decoder_num_banks = 8
     num_highwaynet_blocks = 4
+    norm_type = "ln"
+    dropout_rate = 0.0
     
     # training scheme
     lr = 0.0001

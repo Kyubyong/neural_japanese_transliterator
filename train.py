@@ -32,7 +32,7 @@ class Graph:
             self.enc = embed(self.x, len(roma2idx), hp.embed_size, scope="emb_x")
                 
             # Encoder
-            self.memory = encode(self.enc, is_training=True)
+            self.memory = encode(self.enc, is_training=is_training)
             
             # Character Embedding for decoder_inputs
             self.decoder_inputs = shift_by_one(self.y)
@@ -46,14 +46,14 @@ class Graph:
             if is_training: 
                 self.loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y, logits=self.outputs) 
                 self.istarget = tf.to_float(tf.not_equal(self.y, tf.zeros_like(self.y))) # masking
-                self.mean_loss = tf.reduce_sum(self.loss * self.istarget) / (tf.reduce_sum(self.istarget) + 1e-5)
+                self.mean_loss = tf.reduce_sum(self.loss * self.istarget) / (tf.reduce_sum(self.istarget))
                
                 # Training Scheme
                 self.global_step = tf.Variable(0, name='global_step', trainable=False)
                 self.optimizer = tf.train.AdamOptimizer(learning_rate=hp.lr)
                 self.train_op = self.optimizer.minimize(self.mean_loss, global_step=self.global_step)
                    
-                # Summmary 
+                # Summary 
                 tf.summary.scalar('mean_loss', self.mean_loss)
                 self.merged = tf.summary.merge_all()
          
@@ -69,9 +69,7 @@ def main():
                 if sv.should_stop(): break
                 for step in tqdm(range(g.num_batch), total=g.num_batch, ncols=70, leave=False, unit='b'):
                     sess.run(g.train_op)
-                    if step%10==0:
-                        print(sess.run(g.mean_loss))
-                    
+
                 # Write checkpoint files at every epoch
                 gs = sess.run(g.global_step) 
                 sv.saver.save(sess, hp.logdir + '/model_epoch_%02d_gs_%d' % (epoch, gs))

@@ -24,20 +24,29 @@ def encode(inputs, is_training=True, scope="encoder", reuse=None):
     '''
     with tf.variable_scope(scope, reuse=reuse):
         # Encoder pre-net
-        prenet_out = prenet(inputs, is_training=is_training) # (N, T, E/2)
+        prenet_out = prenet(inputs, 
+                            num_units=[hp.embed_size, hp.embed_size//2],
+                            dropout_rate=hp.dropout_rate,
+                            is_training=is_training) # (N, T, E/2)
 
         # Encoder CBHG 
         ## Conv1D bank 
-        enc = conv1d_banks(prenet_out, K=hp.encoder_num_banks, is_training=is_training) # (N, T, K * E / 2)
+        enc = conv1d_banks(prenet_out, 
+                           K=hp.encoder_num_banks, 
+                           num_units=hp.embed_size//2,
+                           norm_type=hp.norm_type,
+                           is_training=is_training) # (N, T, K * E / 2)
 
         ### Max pooling
         enc = tf.layers.max_pooling1d(enc, 2, 1, padding="same")  # (N, T, K * E / 2)
           
         ### Conv1D projections
         enc = conv1d(enc, hp.embed_size//2, 3, scope="conv1d_1") # (N, T, E/2)
-        enc = normalize(enc, type="bn", is_training=is_training, 
-                            activation_fn=tf.nn.relu)
+        enc = normalize(enc, type=hp.norm_type, is_training=is_training, 
+                            activation_fn=tf.nn.relu, scope="norm1")
         enc = conv1d(enc, hp.embed_size//2, 3, scope="conv1d_2") # (N, T, E/2)
+        enc = normalize(enc, type=hp.norm_type, is_training=is_training, 
+                            activation_fn=None, scope="norm2")
         enc += prenet_out # (N, T, E/2) # residual connections
           
         ### Highway Nets
