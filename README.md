@@ -5,7 +5,7 @@ In this project, I examine how well neural networks can convert Roman letters in
 
 ## Requirements
   * NumPy >= 1.11.1
-  * TensorFlow == 1.1
+  * TensorFlow == 1.2
   * regex (Enables us to use convenient regular expression posix)
   * janome (for morph analysis)
   * romkan (for converting kana to romaji)
@@ -68,9 +68,9 @@ The evaluation metric is CER (Character Error Rate). Its formula is
 
 * edit distance / # characters = CER.
 
-The following is the results after five epochs. Details are available in `results/*.csv`. 
+The following is the results after 13 epochs, or 79,898 global steps. Details are available in `results/*.csv`.
 
-| Mine (Greedy decoding) | Mine (Beam decoding) | SwiftKey 6.4.8.57 |
+| Proposed (Greedy decoding) | Proposed (Beam decoding) | SwiftKey 6.4.8.57 |
 |--- |--- |--- | 
-|1618/12057=0.13 | 1576/12057=0.13 | 1640/12057=0.13|
+|1595/12057=0.132 | 1517/12057=0.125 | 1640/12057=0.136|
 
