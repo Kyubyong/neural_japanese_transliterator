@@ -50,8 +50,8 @@ I adopted the encoder and the first decoder architecture of [Tacotron](https://a
 * STEP 1. Download [Leipzig Japanese Corpus](http://corpora2.informatik.uni-leipzig.de/downloads/jpn_news_2005-2008_1M-text.tar.gz) and extract `jpn_news_2005-2008_1M-sentences.txt` to `data/` folder.
 * STEP 2. Adjust hyperparameters in `hyperparams.py` if necessary.
 * STEP 3. Run `python annotate.py`.
-* STEP 4. Run `python prepro.py`. Or download the [preprocessed files](https://u42868014.dl.dropboxusercontent.com/u/42868014/japanese_transliteration/preprocessed.zip).
-* STEP 5. Run `train.py`. Or download the [pretrained files](https://u42868014.dl.dropboxusercontent.com/u/42868014/japanese_transliteration/logdir.zip).
+* STEP 4. Run `python prepro.py`. Or download the [preprocessed files](https://www.dropbox.com/s/tv81rxcjr3x9eh1/preprocessed.zip?dl=0).
+* STEP 5. Run `train.py`. Or download the [pretrained files](https://www.dropbox.com/s/wrbr7tnf4zva4bj/logdir.zip?dl=0).
 
 
 ## Testing
